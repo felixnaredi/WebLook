@@ -22,8 +22,7 @@
 		0AC026F7226F67F600C0961C /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 0AC026F6226F67F600C0961C /* Shaders.metal */; };
 		0AC026F8226F67F600C0961C /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 0AC026F6226F67F600C0961C /* Shaders.metal */; };
 		0AC026F9226F686700C0961C /* WebP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A70AD3B226F642D00AC1BC4 /* WebP.framework */; };
-		0AC02702226F6D7700C0961C /* GenerateThumbnailForURL.c in Sources */ = {isa = PBXBuildFile; fileRef = 0AC02701226F6D7700C0961C /* GenerateThumbnailForURL.c */; };
-		0AC02704226F6D7700C0961C /* GeneratePreviewForURL.c in Sources */ = {isa = PBXBuildFile; fileRef = 0AC02703226F6D7700C0961C /* GeneratePreviewForURL.c */; };
+		0AC02704226F6D7700C0961C /* Generate.c in Sources */ = {isa = PBXBuildFile; fileRef = 0AC02703226F6D7700C0961C /* Generate.c */; };
 		0AC02706226F6D7700C0961C /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 0AC02705226F6D7700C0961C /* main.c */; };
 		0AC0270B226F825000C0961C /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 0AC026F6226F67F600C0961C /* Shaders.metal */; };
 		0AC0270E226F82B200C0961C /* WebP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A70AD3B226F642D00AC1BC4 /* WebP.framework */; };
@@ -82,8 +81,7 @@
 		0AC026F3226F67C700C0961C /* WebPDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebPDecoder.swift; sourceTree = "<group>"; };
 		0AC026F6226F67F600C0961C /* Shaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Shaders.metal; sourceTree = "<group>"; };
 		0AC026FF226F6D7700C0961C /* QuickLookPlugIn.qlgenerator */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QuickLookPlugIn.qlgenerator; sourceTree = BUILT_PRODUCTS_DIR; };
-		0AC02701226F6D7700C0961C /* GenerateThumbnailForURL.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = GenerateThumbnailForURL.c; sourceTree = "<group>"; };
-		0AC02703226F6D7700C0961C /* GeneratePreviewForURL.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = GeneratePreviewForURL.c; sourceTree = "<group>"; };
+		0AC02703226F6D7700C0961C /* Generate.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = Generate.c; sourceTree = "<group>"; };
 		0AC02705226F6D7700C0961C /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		0AC02707226F6D7700C0961C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -186,8 +184,7 @@
 		0AC02700226F6D7700C0961C /* QuickLookPlugIn */ = {
 			isa = PBXGroup;
 			children = (
-				0AC02701226F6D7700C0961C /* GenerateThumbnailForURL.c */,
-				0AC02703226F6D7700C0961C /* GeneratePreviewForURL.c */,
+				0AC02703226F6D7700C0961C /* Generate.c */,
 				0AC02705226F6D7700C0961C /* main.c */,
 				0AC02707226F6D7700C0961C /* Info.plist */,
 			);
@@ -359,8 +356,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0AC0270B226F825000C0961C /* Shaders.metal in Sources */,
-				0AC02702226F6D7700C0961C /* GenerateThumbnailForURL.c in Sources */,
-				0AC02704226F6D7700C0961C /* GeneratePreviewForURL.c in Sources */,
+				0AC02704226F6D7700C0961C /* Generate.c in Sources */,
 				0AC02706226F6D7700C0961C /* main.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

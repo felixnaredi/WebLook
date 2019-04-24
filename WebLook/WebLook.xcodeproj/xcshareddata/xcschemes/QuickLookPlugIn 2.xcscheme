@@ -57,7 +57,7 @@
       </MacroExpansion>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "-p ~/Documents/web/9gag/a0Q1Kqv_460swp.webp -c public.webp -g /Users/felixnaredi/Library/Developer/Xcode/DerivedData/WebLook-dghvgnjnpmoahncegdzpewcfhcsn/Build/Products/Debug/QuickLookPlugIn.qlgenerator"
+            argument = "-p &quot;~/Documents/web/9gag/a0Q1Kqv_460swp copy.webp&quot; -c public.webp -g /Users/felixnaredi/Library/Developer/Xcode/DerivedData/WebLook-dghvgnjnpmoahncegdzpewcfhcsn/Build/Products/Debug/QuickLookPlugIn.qlgenerator"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
