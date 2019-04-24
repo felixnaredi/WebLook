@@ -11,45 +11,66 @@
    -----------------------------------------------------------------------------
  */
 
-struct WEBLTextureRGBA {
+#define WEBLMin(a, b) (a < b ? a : b)
+
+typedef struct {
   int width;
   int height;
   UInt8 *data;
-};
+} _WEBLTextureRGBA;
 
-static int WEBLCreateRGBATexture(struct WEBLTextureRGBA *texture,
-                                 CFURLRef url) {
-  UInt8 strURL[128];
-  CFURLGetFileSystemRepresentation(url, true, strURL, sizeof(strURL));
+static void WEBLDeleteTexture(_WEBLTextureRGBA *texture) {
+  WebPFree(texture->data);
+}
 
-  // TODO:
-  //   Currently does not handle character that must be \ escaped. Also use more
-  //   modern API for IO.
-  int fd = open((const char *)strURL, O_RDONLY);
-  if (fd == -1) {
-    printf("Error - when opening %s: %s\n", strURL, strerror(errno));
+static void WEBLScaleOutputKeepingAspectRatio(WebPDecoderConfig *config,
+                                              CGSize size) {
+  CGFloat imageWidth = (CGFloat)config->input.width;
+  CGFloat imageHeight = (CGFloat)config->input.height;
+  CGFloat xScale = size.width / imageWidth;
+  CGFloat yScale = size.height / imageHeight;
+  CGFloat scale = WEBLMin(xScale, yScale);
+  config->options.scaled_width = (int)(imageWidth * scale);
+  config->options.scaled_height = (int)(imageHeight * scale);
+  config->options.use_scaling = 1;
+}
+
+static int WEBLDecodeWebPRGBA(CFURLRef url, _WEBLTextureRGBA *texture,
+                              UInt8 *inBuffer, CFIndex inBufferSize,
+                              CGSize imageSize) {
+  CFReadStreamRef stream = CFReadStreamCreateWithFile(NULL, url);
+  if (!CFReadStreamOpen(stream))
     return -1;
-  }
 
-  size_t size = lseek(fd, 0, SEEK_END);
-  UInt8 *fileBuffer = malloc(size);
-  lseek(fd, 0, SEEK_SET);
-  read(fd, fileBuffer, size);
-
-  texture->data =
-      WebPDecodeRGBA(fileBuffer, size, &texture->width, &texture->height);
-  close(fd);
-  free(fileBuffer);
-
-  if (texture->data == NULL) {
-    printf("Error - Failed to decode file\n");
+  WebPDecoderConfig config;
+  WebPInitDecoderConfig(&config);
+  CFReadStreamRead(stream, inBuffer, inBufferSize);
+  if (WebPGetFeatures(inBuffer, inBufferSize, &config.input) != VP8_STATUS_OK)
     return -1;
-  }
 
+  config.output.colorspace = MODE_RGBA;
+  if (imageSize.width > 0 && imageSize.height > 0)
+    WEBLScaleOutputKeepingAspectRatio(&config, imageSize);
+
+  WebPIDecoder *decoder = WebPIDecode(NULL, 0, &config);
+  do {
+    VP8StatusCode status = WebPIAppend(decoder, inBuffer, inBufferSize);
+    if (status != VP8_STATUS_OK && status != VP8_STATUS_SUSPENDED)
+      break;
+    CFReadStreamRead(stream, inBuffer, inBufferSize);
+  } while (CFReadStreamHasBytesAvailable(stream));
+
+  WebPIDelete(decoder);
+  CFReadStreamClose(stream);
+  CFRelease(stream);
+
+  texture->width = config.output.width;
+  texture->height = config.output.height;
+  texture->data = config.output.u.RGBA.rgba;
   return 0;
 }
 
-static CGImageRef WEBLCreateCGImage(const struct WEBLTextureRGBA *texture) {
+static CGImageRef WEBLCreateCGImage(const _WEBLTextureRGBA *texture) {
   int width = texture->width;
   int height = texture->height;
 
@@ -71,29 +92,26 @@ static CGImageRef WEBLCreateCGImage(const struct WEBLTextureRGBA *texture) {
 OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestRef preview,
                                CFURLRef url, CFStringRef contentTypeUTI,
                                CFDictionaryRef options) {
-  // To complete your generator please implement the function
-  // GeneratePreviewForURL in GeneratePreviewForURL.c
-  struct WEBLTextureRGBA texture;
-  if (WEBLCreateRGBATexture(&texture, url) == -1)
-    return noErr;
+  _WEBLTextureRGBA texture;
+  UInt8 *buffer = malloc(131072);
+  WEBLDecodeWebPRGBA(url, &texture, buffer, 131072, CGSizeMake(0, 0));
 
   CGImageRef image = WEBLCreateCGImage(&texture);
   if (image == NULL) {
-    WebPFree(texture.data);
+    WEBLDeleteTexture(&texture);
     return noErr;
   }
 
   CGFloat width = (CGFloat)texture.width;
   CGFloat height = (CGFloat)texture.height;
-
   CGContextRef context = QLPreviewRequestCreateContext(
       preview, CGSizeMake(width, height), true, options);
   CGContextDrawImage(context, CGRectMake(0, 0, width, height), image);
-
   QLPreviewRequestFlushContext(preview, context);
 
-  CGImageRetain(image);
-  WebPFree(texture.data);
+  CGImageRelease(image);
+  WEBLDeleteTexture(&texture);
+  free(buffer);
 
   return noErr;
 }
@@ -106,30 +124,26 @@ OSStatus GenerateThumbnailForURL(void *thisInterface,
                                  QLThumbnailRequestRef thumbnail, CFURLRef url,
                                  CFStringRef contentTypeUTI,
                                  CFDictionaryRef options, CGSize maxSize) {
-  // To complete your generator please implement the function
-  // GenerateThumbnailForURL in GenerateThumbnailForURL.c
-  struct WEBLTextureRGBA texture;
-  if (WEBLCreateRGBATexture(&texture, url) == -1)
-    return noErr;
+  _WEBLTextureRGBA texture;
+  UInt8 *buffer = malloc(16384);
+  WEBLDecodeWebPRGBA(url, &texture, buffer, 16384, maxSize);
 
   CGImageRef image = WEBLCreateCGImage(&texture);
   if (image == NULL) {
-    WebPFree(texture.data);
+    WEBLDeleteTexture(&texture);
     return noErr;
   }
 
   CGFloat width = (CGFloat)texture.width;
   CGFloat height = (CGFloat)texture.height;
-
-  CGContextRef context =
-      QLThumbnailRequestCreateContext(thumbnail, maxSize, true, options);
-  CGContextDrawImage(context, CGRectMake(0, 0, (CGFloat)width, (CGFloat)height),
-                     image);
-
+  CGContextRef context = QLThumbnailRequestCreateContext(
+      thumbnail, CGSizeMake(width, height), true, options);
+  CGContextDrawImage(context, CGRectMake(0, 0, width, height), image);
   QLThumbnailRequestFlushContext(thumbnail, context);
 
-  CGImageRetain(image);
-  WebPFree(texture.data);
+  CGImageRelease(image);
+  WEBLDeleteTexture(&texture);
+  free(buffer);
 
   return noErr;
 }
