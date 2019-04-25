@@ -5,10 +5,10 @@
 #include <WebP/types.h>
 
 /* -----------------------------------------------------------------------------
-   Generate a preview for file
-
-   This function's job is to create preview for designated file
-   -----------------------------------------------------------------------------
+ Generate a preview for file
+ 
+ This function's job is to create preview for designated file
+ -----------------------------------------------------------------------------
  */
 
 #define WEBLMin(a, b) (a < b ? a : b)
@@ -37,33 +37,34 @@ static void WEBLScaleOutputKeepingAspectRatio(WebPDecoderConfig *config,
 
 static int WEBLDecodeWebPRGBA(CFURLRef url, _WEBLTextureRGBA *texture,
                               UInt8 *inBuffer, CFIndex inBufferSize,
-                              CGSize imageSize) {
+                              CGSize imageSize, bool canScaleUp) {
   CFReadStreamRef stream = CFReadStreamCreateWithFile(NULL, url);
   if (!CFReadStreamOpen(stream))
     return -1;
-
+  
   WebPDecoderConfig config;
   WebPInitDecoderConfig(&config);
   CFReadStreamRead(stream, inBuffer, inBufferSize);
   if (WebPGetFeatures(inBuffer, inBufferSize, &config.input) != VP8_STATUS_OK)
     return -1;
-
+  
   config.output.colorspace = MODE_RGBA;
-  if (imageSize.width > 0 && imageSize.height > 0)
+  if (imageSize.width > 0 && imageSize.height > 0 &&
+      (canScaleUp || config.input.width > imageSize.width ||
+       config.input.height > imageSize.height))
     WEBLScaleOutputKeepingAspectRatio(&config, imageSize);
-
+  
   WebPIDecoder *decoder = WebPIDecode(NULL, 0, &config);
   do {
     VP8StatusCode status = WebPIAppend(decoder, inBuffer, inBufferSize);
     if (status != VP8_STATUS_OK && status != VP8_STATUS_SUSPENDED)
       break;
-    CFReadStreamRead(stream, inBuffer, inBufferSize);
-  } while (CFReadStreamHasBytesAvailable(stream));
-
+  } while (CFReadStreamRead(stream, inBuffer, inBufferSize) > 0);
+  
   WebPIDelete(decoder);
   CFReadStreamClose(stream);
   CFRelease(stream);
-
+  
   texture->width = config.output.width;
   texture->height = config.output.height;
   texture->data = config.output.u.RGBA.rgba;
@@ -73,46 +74,50 @@ static int WEBLDecodeWebPRGBA(CFURLRef url, _WEBLTextureRGBA *texture,
 static CGImageRef WEBLCreateCGImage(const _WEBLTextureRGBA *texture) {
   int width = texture->width;
   int height = texture->height;
-
+  
   CGDataProviderRef provider = CGDataProviderCreateWithData(
-      NULL, texture->data, width * height * 4, NULL);
+                                                            NULL, texture->data, width * height * 4, NULL);
   CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-
+  
   CGImageRef image =
-      CGImageCreate(width, height, 8, 32, width * 4, colorSpace,
-                    kCGImageAlphaLast | kCGImageByteOrderDefault, provider,
-                    NULL, false, kCGRenderingIntentDefault);
-
+  CGImageCreate(width, height, 8, 32, width * 4, colorSpace,
+                kCGImageAlphaLast | kCGImageByteOrderDefault, provider,
+                NULL, false, kCGRenderingIntentDefault);
+  
   CGDataProviderRelease(provider);
   CGColorSpaceRelease(colorSpace);
-
+  
   return image;
 }
 
 OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestRef preview,
                                CFURLRef url, CFStringRef contentTypeUTI,
                                CFDictionaryRef options) {
+  CGSize maxSize = CGDisplayBounds(CGMainDisplayID()).size;
+  maxSize.width *= 0.8;
+  maxSize.height *= 0.8;
+  
+  UInt8 *buffer = malloc(65536);
   _WEBLTextureRGBA texture;
-  UInt8 *buffer = malloc(131072);
-  WEBLDecodeWebPRGBA(url, &texture, buffer, 131072, CGSizeMake(0, 0));
-
+  WEBLDecodeWebPRGBA(url, &texture, buffer, 65536, maxSize, false);
+  
   CGImageRef image = WEBLCreateCGImage(&texture);
   if (image == NULL) {
     WEBLDeleteTexture(&texture);
     return noErr;
   }
-
+  
   CGFloat width = (CGFloat)texture.width;
   CGFloat height = (CGFloat)texture.height;
   CGContextRef context = QLPreviewRequestCreateContext(
-      preview, CGSizeMake(width, height), true, options);
+                                                       preview, CGSizeMake(width, height), true, options);
   CGContextDrawImage(context, CGRectMake(0, 0, width, height), image);
   QLPreviewRequestFlushContext(preview, context);
-
+  
   CGImageRelease(image);
   WEBLDeleteTexture(&texture);
   free(buffer);
-
+  
   return noErr;
 }
 
@@ -124,27 +129,27 @@ OSStatus GenerateThumbnailForURL(void *thisInterface,
                                  QLThumbnailRequestRef thumbnail, CFURLRef url,
                                  CFStringRef contentTypeUTI,
                                  CFDictionaryRef options, CGSize maxSize) {
-  _WEBLTextureRGBA texture;
   UInt8 *buffer = malloc(16384);
-  WEBLDecodeWebPRGBA(url, &texture, buffer, 16384, maxSize);
-
+  _WEBLTextureRGBA texture;
+  WEBLDecodeWebPRGBA(url, &texture, buffer, 16384, maxSize, true);
+  
   CGImageRef image = WEBLCreateCGImage(&texture);
   if (image == NULL) {
     WEBLDeleteTexture(&texture);
     return noErr;
   }
-
+  
   CGFloat width = (CGFloat)texture.width;
   CGFloat height = (CGFloat)texture.height;
   CGContextRef context = QLThumbnailRequestCreateContext(
-      thumbnail, CGSizeMake(width, height), true, options);
+                                                         thumbnail, CGSizeMake(width, height), true, options);
   CGContextDrawImage(context, CGRectMake(0, 0, width, height), image);
   QLThumbnailRequestFlushContext(thumbnail, context);
-
+  
   CGImageRelease(image);
   WEBLDeleteTexture(&texture);
   free(buffer);
-
+  
   return noErr;
 }
 

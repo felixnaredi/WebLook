@@ -8,6 +8,7 @@
 import MetalKit
 import simd
 
+
 fileprivate func quadVerticesBuffer(with device: MTLDevice) -> MTLBuffer {
   return [
     WEBLVertex(position: float2(1, -1), textureCoordinate: float2(1, 1)),
@@ -26,11 +27,20 @@ fileprivate func quadVerticesBuffer(with device: MTLDevice) -> MTLBuffer {
 class Renderer: NSObject, MTKViewDelegate {
   enum Error: Swift.Error {
     case failedToCreateMetalDevice
-    case failedToCreateMetalObject(_ object: Any, device: MTLDevice)
   }
 
   class View: MTKView {
     var texture: MTLTexture?
+
+    static func create(with renderer: Renderer, texture: MTLTexture) -> View {
+      let view = View(
+        frame: CGRect(x: 0, y: 0, width: texture.width, height: texture.height),
+        device: renderer.device)
+      view.texture = texture
+      view.delegate = renderer
+      view.colorPixelFormat = renderer.colorPixelFormat
+      return view
+    }
   }
 
   let device: MTLDevice
@@ -58,18 +68,20 @@ class Renderer: NSObject, MTKViewDelegate {
 
   func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
 
+  private func encode(with renderEncoder: MTLRenderCommandEncoder, texture: MTLTexture) {
+    renderEncoder.setRenderPipelineState(pipelineState)
+    renderEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+    renderEncoder.setFragmentTexture(texture, index: 0)
+    renderEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
+    renderEncoder.endEncoding()
+  }
+
   func draw(in view: MTKView) {
     let view = view as! View
     let commandBuffer = commandQueue.makeCommandBuffer()!
-    let renderPassDescriptor = view.currentRenderPassDescriptor!
-
-    let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor)!
-    renderEncoder.setRenderPipelineState(pipelineState)
-    renderEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
-    renderEncoder.setFragmentTexture(view.texture!, index: 0)
-    renderEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
-    renderEncoder.endEncoding()
-
+    encode(
+      with: commandBuffer.makeRenderCommandEncoder(descriptor: view.currentRenderPassDescriptor!)!,
+      texture: view.texture!)
     commandBuffer.present(view.currentDrawable!)
     commandBuffer.commit()
   }
